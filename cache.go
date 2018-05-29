@@ -1,7 +1,6 @@
 package cachery
 
 import (
-	"expvar"
 	"time"
 )
 
@@ -22,6 +21,13 @@ type Cache interface {
 	InvalidateAll()
 }
 
+type Driver interface {
+	Get(cacheName string, key interface{}) (val []byte, ttl time.Duration, err error)
+	Set(cacheName string, key interface{}, val []byte, ttl time.Duration) (err error)
+	Invalidate(cacheName string, key interface{}) error
+	InvalidateAll(cacheName string)
+}
+
 // Config describes configuration of cache
 type Config struct {
 	// Expire when data in cache becomes stale but still usable and needs to be updated from fetcher
@@ -32,6 +38,4 @@ type Config struct {
 	Tags []string
 	// Serializer for objects
 	Serializer Serializer
-	// ExpVar expvar.Map to save cache stats
-	ExpVar *expvar.Map
 }

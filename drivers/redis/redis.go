@@ -1,34 +1,20 @@
 package redis
 
 import (
-	"expvar"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/DLag/cachery"
 	"github.com/garyburd/redigo/redis"
-	"github.com/pkg/errors"
 )
 
-type RedisCache struct {
-	name       string
-	config     cachery.Config
-	client     *redis.Pool
-	updating   int32
-	fetchLock  sync.RWMutex
-	expvar     *expvar.Map
-	serializer cachery.Serializer
+type Driver struct {
+	client *redis.Pool
 }
 
-func New(name string, redis *redis.Pool, config cachery.Config) *RedisCache {
-	cache := new(RedisCache)
-	cache.name = name
-	cache.client = redis
-	cache.expvar = config.ExpVar
-	cache.config = config
-	cache.serializer = config.Serializer
-	return cache
+func New(redis *redis.Pool) *Driver {
+	driver := new(Driver)
+	driver.client = redis
+	return driver
 }
 
 func DefaultPool(host string, maxIdle int, idleTimeout time.Duration) *redis.Pool {
@@ -39,57 +25,16 @@ func DefaultPool(host string, maxIdle int, idleTimeout time.Duration) *redis.Poo
 	}
 }
 
-func (c *RedisCache) Name() string {
-	return c.name
+func (c *Driver) Invalidate(cacheName string, key interface{}) error {
+	return c.del(cacheName, cachery.Key(key))
 }
 
-func (c *RedisCache) Get(key interface{}, obj interface{}, fetcher cachery.Fetcher) error {
-	attempts := 0
-	for {
-		// Trying to get item from Redis server
-		attempts++
-		val, ttl, err := c.get(cachery.Key(key))
-		if err == nil {
-			// Item isn't expired
-			err = c.serializer.Deserialize(val, obj)
-			// If object is expired but still alive use stale value but start background update
-			if (int(c.config.Lifetime.Seconds()) - int(c.config.Expire.Seconds())) > ttl {
-				c.expvarAdd("stale", 1)
-				go c.fetch(key, fetcher)
-			}
-			c.expvarAdd("hits", 1)
-			return err
-		}
-		switch attempts {
-		case 1:
-			c.fetch(key, fetcher)
-		case 2:
-			c.expvarAdd("get_after_fetch_errors", 1)
-			return errors.New("Cannot get data from cache on second attempt.")
-		}
-	}
+func (c *Driver) InvalidateAll(cacheName string) {
+	_ = c.delSet(cacheName)
 }
 
-func (c *RedisCache) Invalidate(key interface{}) error {
-	return c.del(cachery.Key(key))
-}
-
-func (c *RedisCache) InvalidateTags(tags ...string) {
-	for _, t := range tags {
-		for _, ct := range c.config.Tags {
-			if ct == t {
-				_ = c.delSet()
-				return
-			}
-		}
-	}
-}
-
-func (c *RedisCache) InvalidateAll() {
-	_ = c.delSet()
-}
-
-func (c *RedisCache) set(key string, val []byte) (err error) {
+func (c *Driver) Set(cacheName string, key interface{}, val []byte, ttl time.Duration) (err error) {
+	skey := cachery.Key(key)
 	client := c.client.Get()
 	defer func() {
 		e := client.Close()
@@ -97,23 +42,23 @@ func (c *RedisCache) set(key string, val []byte) (err error) {
 			err = e
 		}
 	}()
-	if err = client.Send("SADD", c.name, c.name+":"+key); err != nil {
+	if err = client.Send("SADD", cacheName, cacheName+":"+skey); err != nil {
 		return
 	}
-	if err = client.Send("SET", c.name+":"+key, val); err != nil {
+	if err = client.Send("SET", cacheName+":"+skey, val); err != nil {
 		return
 	}
-	if err = client.Send("EXPIRE", c.name+":"+key, c.config.Lifetime.Seconds()); err != nil {
+	if err = client.Send("EXPIRE", cacheName+":"+skey, ttl.Seconds()); err != nil {
 		return
 	}
 	if err = client.Flush(); err != nil {
 		return
 	}
-	c.expvarAdd("sets", 1)
 	return
 }
 
-func (c *RedisCache) get(key string) (val []byte, ttl int, err error) {
+func (c *Driver) Get(cacheName string, key interface{}) (val []byte, ttl time.Duration, err error) {
+	skey := cachery.Key(key)
 	client := c.client.Get()
 	defer func() {
 		e := client.Close()
@@ -121,19 +66,17 @@ func (c *RedisCache) get(key string) (val []byte, ttl int, err error) {
 			err = e
 		}
 	}()
-	val, err = redis.Bytes(client.Do("GET", c.name+":"+key))
+	val, err = redis.Bytes(client.Do("GET", cacheName+":"+skey))
 	if err != nil {
 		return
 	}
-	ttl, err = redis.Int(client.Do("TTL", c.name+":"+key))
-	if err != nil {
-		return
-	}
-	c.expvarAdd("gets", 1)
-	return val, ttl, nil
+	var rawttl int
+	rawttl, err = redis.Int(client.Do("TTL", cacheName+":"+skey))
+	ttl = time.Second * time.Duration(rawttl)
+	return
 }
 
-func (c *RedisCache) delSet() (err error) {
+func (c *Driver) delSet(cacheName string) (err error) {
 	client := c.client.Get()
 	defer func() {
 		e := client.Close()
@@ -141,19 +84,19 @@ func (c *RedisCache) delSet() (err error) {
 			err = e
 		}
 	}()
-	members, err := redis.Strings(client.Do("SMEMBERS", c.name))
+	members, err := redis.Strings(client.Do("SMEMBERS", cacheName))
 	if err != nil {
 		return err
 	}
 	for _, m := range members {
-		_ = client.Send("SREM", c.name, m)
+		_ = client.Send("SREM", cacheName, m)
 		_ = client.Send("DEL", m)
 	}
 	err = client.Flush()
 	return
 }
 
-func (c *RedisCache) del(key string) (err error) {
+func (c *Driver) del(cacheName string, key string) (err error) {
 	client := c.client.Get()
 	defer func() {
 		e := client.Close()
@@ -161,46 +104,8 @@ func (c *RedisCache) del(key string) (err error) {
 			err = e
 		}
 	}()
-	_ = client.Send("SREM", c.name, c.name+":"+key)
-	_ = client.Send("DEL", c.name+":"+key)
+	_ = client.Send("SREM", cacheName, cacheName+":"+key)
+	_ = client.Send("DEL", cacheName+":"+key)
 	err = client.Flush()
-	c.expvarAdd("deletes", 1)
 	return
-}
-
-func (c *RedisCache) expvarAdd(key string, delta int64) {
-	if c.expvar != nil {
-		c.expvar.Add(key, delta)
-	}
-}
-
-func (c *RedisCache) fetch(key interface{}, fetcher cachery.Fetcher) {
-	// If it is not updating now
-	if atomic.CompareAndSwapInt32(&c.updating, 0, 1) {
-		defer atomic.CompareAndSwapInt32(&c.updating, 1, 0)
-		c.fetchLock.Lock()
-		defer c.fetchLock.Unlock()
-		// Getting from fetcher
-		obj, err := fetcher(key)
-		if err != nil {
-			c.expvarAdd("fetch_get_errors", 1)
-			return
-		}
-		// Writing to Redis
-		val, err := c.serializer.Serialize(obj)
-		if err != nil {
-			c.expvarAdd("fetch_serialize_errors", 1)
-			return
-		}
-		err = c.set(cachery.Key(key), val)
-		if err != nil {
-			c.expvarAdd("fetch_write_to_cache_errors", 1)
-			return
-		}
-		c.expvarAdd("fetches", 1)
-	} else {
-		// Waiting for another fetch
-		c.fetchLock.RLock()
-		c.fetchLock.RUnlock()
-	}
 }

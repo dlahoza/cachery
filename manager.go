@@ -6,6 +6,14 @@ import (
 
 var (
 	caches Manager
+	// Add cache to the internal cache Manager
+	Add = caches.Add
+	// Get cache from the internal Manager by its name or returns nil if could not find it
+	Get = caches.Get
+	// InvalidateTags invalidates caches of internal Manager which have specific tags
+	InvalidateTags = caches.InvalidateTags
+	// InvalidateAll invalidates all caches of internal Manager
+	InvalidateAll = caches.InvalidateAll
 )
 
 // Manager consolidates caches and allows manipulations on them
@@ -15,13 +23,16 @@ type Manager struct {
 }
 
 // Add cache to Manager
-func (m *Manager) Add(cache Cache) {
+func (m *Manager) Add(cache ...Cache) *Manager {
 	m.Lock()
 	if m.caches == nil {
 		m.caches = make(map[string]Cache)
 	}
-	m.caches[cache.Name()] = cache
+	for i := range cache {
+		m.caches[cache[i].Name()] = cache[i]
+	}
 	m.Unlock()
+	return m
 }
 
 // Get cache from Manager by its name or returns nil if could not find it
@@ -50,24 +61,4 @@ func (m *Manager) InvalidateAll() {
 	for i := range m.caches {
 		m.caches[i].InvalidateAll()
 	}
-}
-
-// Add cache to the internal cache Manager
-func Add(cache Cache) {
-	caches.Add(cache)
-}
-
-// Get cache from the internal Manager by its name or returns nil if could not find it
-func Get(name string) Cache {
-	return caches.Get(name)
-}
-
-// InvalidateTags invalidates caches of internal Manager which have specific tags
-func InvalidateTags(tags ...string) {
-	caches.InvalidateTags(tags...)
-}
-
-// InvalidateAll invalidates all caches of internal Manager
-func InvalidateAll() {
-	caches.InvalidateAll()
 }
