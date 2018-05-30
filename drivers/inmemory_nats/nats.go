@@ -1,7 +1,27 @@
+// Copyright (c) 2018 Dmytro Lahoza <dmitry@lagoza.name>
+//
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package inmemory_nats
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/DLag/cachery"
@@ -14,7 +34,7 @@ import (
 // Driver type satisfies cachery.Driver interface
 type Driver struct {
 	inmemory *inmemory.Driver
-	nats     *nats.Conn
+	nats     *nats.EncodedConn
 	subject  string
 	id       string
 }
@@ -27,12 +47,12 @@ type message struct {
 }
 
 // New creates an instance of Driver
-func New(gctimeout time.Duration, nats *nats.Conn, subject string) *Driver {
+func New(gctimeout time.Duration, nc *nats.Conn, subject string) *Driver {
 	driver := new(Driver)
 	driver.inmemory = inmemory.New(gctimeout)
-	uuid, _ := uuid.NewV4()
-	driver.id = uuid.String()
-	driver.nats = nats
+	u, _ := uuid.NewV4()
+	driver.id = u.String()
+	driver.nats, _ = nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 	driver.subject = subject
 	_, err := driver.nats.Subscribe(driver.subject, driver.consumer)
 	if err != nil {
@@ -90,24 +110,14 @@ func (c *Driver) Get(cacheName string, key interface{}) (val []byte, ttl time.Du
 }
 
 func (c *Driver) send(msg message) error {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return errors.Wrap(err, "In-memory NATS driver: cannot marshal message")
-	}
-	err = c.nats.Publish(c.subject, data)
+	err := c.nats.Publish(c.subject, msg)
 	if err != nil {
 		return errors.Wrap(err, "In-memory NATS driver: cannot send message")
 	}
 	return nil
 }
 
-func (c *Driver) consumer(m *nats.Msg) {
-	//fmt.Printf("Received a message: %s\n", string(m.Data))
-	var msg message
-	err := json.Unmarshal(m.Data, &msg)
-	if err != nil {
-		return
-	}
+func (c *Driver) consumer(msg *message) {
 	// Skip its own messages
 	if c.id == msg.Sender {
 		return
