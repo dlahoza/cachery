@@ -124,7 +124,7 @@ func (c *Driver) consumer(msg *message) {
 	}
 	switch msg.Command {
 	case "Invalidate":
-		c.inmemory.Invalidate(msg.CacheName, msg.Key)
+		_ = c.inmemory.Invalidate(msg.CacheName, msg.Key)
 	case "InvalidateAll":
 		c.inmemory.InvalidateAll(msg.CacheName)
 	}
