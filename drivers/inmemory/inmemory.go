@@ -3,7 +3,6 @@ package inmemory
 import (
 	"time"
 
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -73,13 +72,11 @@ func (c *Driver) Get(cacheName string, key interface{}) (val []byte, ttl time.Du
 	if _, ok := c.storage[cacheName]; ok {
 		if i, ok := c.storage[cacheName][key]; ok {
 			if ttl = time.Until(i.deadline); ttl > 0 {
-				fmt.Println(ttl)
 				val = make([]byte, len(i.value))
 				copy(val, i.value)
 				c.storageLock.RUnlock()
 				return
 			} else {
-				fmt.Println(ttl)
 				c.storageLock.RUnlock()
 				c.sweep([]path{{cacheName, key}})
 				return nil, 0, ErrNotFound

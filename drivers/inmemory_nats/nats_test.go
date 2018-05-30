@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DLag/cachery"
+	"github.com/nats-io/go-nats"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,7 +35,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 
 	s := new(cachery.GobSerializer)
 	m := new(cachery.Manager)
-	d := Default("")
+	d := Default(nats.DefaultURL, "cachery-test")
 	t.Run("Init", func(t *testing.T) {
 		m.Add(cachery.NewDefault("CACHE1", cachery.Config{
 			Expire:     time.Second * 1,
@@ -59,6 +60,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 	a.NotNil(c1)
 	a.Equal("CACHE1", c1.Name())
 	c1.InvalidateAll()
+	time.Sleep(time.Millisecond * 100)
 	a.Nil(m.Get("NOCACHE"))
 
 	key := "a"
@@ -128,7 +130,7 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 
 	s := new(cachery.GobSerializer)
 	m := new(cachery.Manager)
-	d := Default()
+	d := Default(nats.DefaultURL, "cachery-test")
 	key := "a"
 
 	t.Run("Init", func(t *testing.T) {
@@ -154,6 +156,7 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 	a.NotNil(c2)
 	a.Equal("CACHE2", c2.Name())
 	c2.InvalidateAll()
+	time.Sleep(time.Millisecond * 100)
 
 	t.Run("NoCache", func(t *testing.T) {
 		var val TestType
@@ -210,7 +213,8 @@ func TestDriver_Invalidate(t *testing.T) {
 
 	s := new(cachery.GobSerializer)
 	m := new(cachery.Manager)
-	d := Default()
+	d1 := Default(nats.DefaultURL, "cachery-test")
+	d2 := Default(nats.DefaultURL, "cachery-test")
 	key := "a"
 
 	t.Run("Init", func(t *testing.T) {
@@ -220,7 +224,7 @@ func TestDriver_Invalidate(t *testing.T) {
 			Serializer: s,
 			Tags:       []string{"tag12", "tag1"},
 		},
-			d,
+			d1,
 			nil,
 		),
 			cachery.NewDefault("CACHE2", cachery.Config{
@@ -229,7 +233,7 @@ func TestDriver_Invalidate(t *testing.T) {
 				Serializer: s,
 				Tags:       []string{"tag12", "tag2"},
 			},
-				d,
+				d2,
 				nil),
 		)
 	})
@@ -242,6 +246,7 @@ func TestDriver_Invalidate(t *testing.T) {
 	a.Equal("CACHE2", c2.Name())
 	c1.InvalidateAll()
 	c2.InvalidateAll()
+	time.Sleep(time.Millisecond * 100)
 
 	t.Run("NoCache", func(t *testing.T) {
 		var val1, val2 int
@@ -259,6 +264,7 @@ func TestDriver_Invalidate(t *testing.T) {
 	})
 	t.Run("InvalidateCache1", func(t *testing.T) {
 		c1.Invalidate(key)
+		time.Sleep(time.Millisecond * 100)
 		var val1, val2 int
 
 		err := c1.Get("a", &val1, c1Fetcher.fetch)
@@ -275,6 +281,7 @@ func TestDriver_Invalidate(t *testing.T) {
 	})
 	t.Run("InvalidateCache2", func(t *testing.T) {
 		c2.Invalidate("a")
+		time.Sleep(time.Millisecond * 100)
 		var val1, val2 int
 
 		err := c1.Get("a", &val1, c1Fetcher.fetch)
@@ -292,6 +299,7 @@ func TestDriver_Invalidate(t *testing.T) {
 	t.Run("InvalidateTag1", func(t *testing.T) {
 		c1.InvalidateTags("tag1")
 		c2.InvalidateTags("tag1")
+		time.Sleep(time.Millisecond * 100)
 		var val1, val2 int
 
 		err := c1.Get("a", &val1, c1Fetcher.fetch)
@@ -309,6 +317,7 @@ func TestDriver_Invalidate(t *testing.T) {
 	t.Run("InvalidateTag12", func(t *testing.T) {
 		c1.InvalidateTags("tag12")
 		c2.InvalidateTags("tag12")
+		time.Sleep(time.Millisecond * 100)
 		var val1, val2 int
 
 		err := c1.Get("a", &val1, c1Fetcher.fetch)
@@ -326,6 +335,7 @@ func TestDriver_Invalidate(t *testing.T) {
 
 	t.Run("InvalidateTag1OnManager", func(t *testing.T) {
 		m.InvalidateTags("tag1")
+		time.Sleep(time.Millisecond * 100)
 		var val1, val2 int
 
 		err := c1.Get("a", &val1, c1Fetcher.fetch)
@@ -343,6 +353,7 @@ func TestDriver_Invalidate(t *testing.T) {
 
 	t.Run("InvalidateAllOnManager", func(t *testing.T) {
 		m.InvalidateAll()
+		time.Sleep(time.Millisecond * 100)
 		var val1, val2 int
 
 		err := c1.Get("a", &val1, c1Fetcher.fetch)

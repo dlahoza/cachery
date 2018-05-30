@@ -2,13 +2,13 @@ package inmemory_nats
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/DLag/cachery"
 	"github.com/DLag/cachery/drivers/inmemory"
 	"github.com/nats-io/go-nats"
 	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
 )
 
 var DefaultTimeout = time.Minute
@@ -17,9 +17,11 @@ type Driver struct {
 	inmemory *inmemory.Driver
 	nats     *nats.Conn
 	subject  string
+	id       string
 }
 
 type message struct {
+	Sender    string
 	Command   string
 	CacheName string
 	Key       string
@@ -28,6 +30,8 @@ type message struct {
 func New(gctimeout time.Duration, nats *nats.Conn, subject string) *Driver {
 	driver := new(Driver)
 	driver.inmemory = inmemory.New(gctimeout)
+	uuid, _ := uuid.NewV4()
+	driver.id = uuid.String()
 	driver.nats = nats
 	driver.subject = subject
 	_, err := driver.nats.Subscribe(driver.subject, driver.consumer)
@@ -46,16 +50,24 @@ func Default(natsURL, subject string) *Driver {
 }
 
 func (c *Driver) Invalidate(cacheName string, key interface{}) error {
+	k := cachery.Key(key)
+	err := c.inmemory.Invalidate(cacheName, k)
+	if err != nil {
+		return err
+	}
 	msg := message{
+		Sender:    c.id,
 		Command:   "Invalidate",
 		CacheName: cacheName,
-		Key:       cachery.Key(key),
+		Key:       cachery.Key(k),
 	}
 	return c.send(msg)
 }
 
 func (c *Driver) InvalidateAll(cacheName string) {
+	c.inmemory.InvalidateAll(cacheName)
 	msg := message{
+		Sender:    c.id,
 		Command:   "InvalidateAll",
 		CacheName: cacheName,
 	}
@@ -83,16 +95,20 @@ func (c *Driver) send(msg message) error {
 }
 
 func (c *Driver) consumer(m *nats.Msg) {
-	fmt.Printf("Received a message: %s\n", string(m.Data))
+	//fmt.Printf("Received a message: %s\n", string(m.Data))
 	var msg message
 	err := json.Unmarshal(m.Data, &msg)
 	if err != nil {
 		return
 	}
+	// Skip its own messages
+	if c.id == msg.Sender {
+		return
+	}
 	switch msg.Command {
 	case "Invalidate":
-		c.Invalidate(msg.CacheName, msg.Key)
+		c.inmemory.Invalidate(msg.CacheName, msg.Key)
 	case "InvalidateAll":
-		c.InvalidateAll(msg.CacheName)
+		c.inmemory.InvalidateAll(msg.CacheName)
 	}
 }
