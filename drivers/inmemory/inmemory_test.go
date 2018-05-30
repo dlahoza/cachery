@@ -1,4 +1,4 @@
-package redis
+package inmemory
 
 import (
 	"errors"
@@ -34,7 +34,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 
 	s := new(cachery.GobSerializer)
 	m := new(cachery.Manager)
-	d := New(DefaultPool("127.0.0.1:6379", 3, time.Second*120))
+	d := Default()
 	t.Run("Init", func(t *testing.T) {
 		m.Add(cachery.NewDefault("CACHE1", cachery.Config{
 			Expire:     time.Second * 1,
@@ -128,7 +128,7 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 
 	s := new(cachery.GobSerializer)
 	m := new(cachery.Manager)
-	d := New(DefaultPool("127.0.0.1:6379", 3, time.Second*120))
+	d := Default()
 	key := "a"
 
 	t.Run("Init", func(t *testing.T) {
@@ -210,7 +210,7 @@ func TestDriver_Invalidate(t *testing.T) {
 
 	s := new(cachery.GobSerializer)
 	m := new(cachery.Manager)
-	d := New(DefaultPool("127.0.0.1:6379", 3, time.Second*120))
+	d := Default()
 	key := "a"
 
 	t.Run("Init", func(t *testing.T) {
