@@ -8,13 +8,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrNotFound item not found in the cache store
 var ErrNotFound = errors.New("Item not found")
+
+// DefaultTimeout default timeout for cache GC
 var DefaultTimeout = time.Minute
 
+// Driver type satisfies cachery.Driver interface
 type Driver struct {
 	storage     map[string]map[interface{}]*item
 	storageLock sync.RWMutex
-	gctimer     *time.Timer
 }
 
 type item struct {
@@ -27,6 +30,7 @@ type path struct {
 	key       interface{}
 }
 
+// New creates an instance of Driver type
 func New(gctimeout time.Duration) *Driver {
 	driver := new(Driver)
 	driver.storage = make(map[string]map[interface{}]*item)
@@ -34,10 +38,12 @@ func New(gctimeout time.Duration) *Driver {
 	return driver
 }
 
+// Default creates an instance of Driver with default GC timeout
 func Default() *Driver {
 	return New(DefaultTimeout)
 }
 
+// Invalidate removes the key from the cache store
 func (c *Driver) Invalidate(cacheName string, key interface{}) error {
 	c.storageLock.Lock()
 	if _, ok := c.storage[cacheName]; ok {
@@ -47,12 +53,14 @@ func (c *Driver) Invalidate(cacheName string, key interface{}) error {
 	return nil
 }
 
+// InvalidateAll removes all keys from the cache store
 func (c *Driver) InvalidateAll(cacheName string) {
 	c.storageLock.Lock()
 	delete(c.storage, cacheName)
 	c.storageLock.Unlock()
 }
 
+// Set saves key to the cache store
 func (c *Driver) Set(cacheName string, key interface{}, val []byte, ttl time.Duration) (err error) {
 	c.storageLock.Lock()
 	if _, ok := c.storage[cacheName]; !ok {
@@ -67,6 +75,7 @@ func (c *Driver) Set(cacheName string, key interface{}, val []byte, ttl time.Dur
 	return nil
 }
 
+// Get loads key from the cache store if it is not outdated
 func (c *Driver) Get(cacheName string, key interface{}) (val []byte, ttl time.Duration, err error) {
 	c.storageLock.RLock()
 	if _, ok := c.storage[cacheName]; ok {

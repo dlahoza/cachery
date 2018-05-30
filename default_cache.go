@@ -19,6 +19,7 @@ type DefaultCache struct {
 	serializer Serializer
 }
 
+// NewDefault creates an instance of DefaultCache
 func NewDefault(name string, config Config, driver Driver, expvar *expvar.Map) *DefaultCache {
 	cache := new(DefaultCache)
 	cache.name = name
@@ -29,10 +30,12 @@ func NewDefault(name string, config Config, driver Driver, expvar *expvar.Map) *
 	return cache
 }
 
+// Name returns name of the cache
 func (c *DefaultCache) Name() string {
 	return c.name
 }
 
+// Get loads data to dst from cache or from fetcher function
 func (c *DefaultCache) Get(key interface{}, obj interface{}, fetcher Fetcher) error {
 	attempts := 0
 	for {
@@ -61,11 +64,13 @@ func (c *DefaultCache) Get(key interface{}, obj interface{}, fetcher Fetcher) er
 	}
 }
 
+// Invalidate specific key
 func (c *DefaultCache) Invalidate(key interface{}) error {
 	c.expvarAdd("invalidate_key", 1)
 	return c.driver.Invalidate(c.name, key)
 }
 
+// InvalidateTags invalidates cache if finds necessary tags
 func (c *DefaultCache) InvalidateTags(tags ...string) {
 	c.expvarAdd("invalidate_tags", 1)
 	for _, t := range tags {
@@ -78,6 +83,7 @@ func (c *DefaultCache) InvalidateTags(tags ...string) {
 	}
 }
 
+// InvalidateAll invalidates all data from this cache
 func (c *DefaultCache) InvalidateAll() {
 	c.expvarAdd("invalidate_all", 1)
 	c.driver.InvalidateAll(c.name)

@@ -11,8 +11,7 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-var DefaultTimeout = time.Minute
-
+// Driver type satisfies cachery.Driver interface
 type Driver struct {
 	inmemory *inmemory.Driver
 	nats     *nats.Conn
@@ -27,6 +26,7 @@ type message struct {
 	Key       string
 }
 
+// New creates an instance of Driver
 func New(gctimeout time.Duration, nats *nats.Conn, subject string) *Driver {
 	driver := new(Driver)
 	driver.inmemory = inmemory.New(gctimeout)
@@ -41,14 +41,17 @@ func New(gctimeout time.Duration, nats *nats.Conn, subject string) *Driver {
 	return driver
 }
 
+// Default creates an instance of Driver with default GC timeout
 func Default(natsURL, subject string) *Driver {
 	conn, err := nats.Connect(natsURL)
 	if err != nil {
 		panic(err)
 	}
-	return New(DefaultTimeout, conn, subject)
+	return New(inmemory.DefaultTimeout, conn, subject)
 }
 
+// Invalidate removes the key from the cache store
+// it's atomic only for local data
 func (c *Driver) Invalidate(cacheName string, key interface{}) error {
 	k := cachery.Key(key)
 	err := c.inmemory.Invalidate(cacheName, k)
@@ -64,6 +67,8 @@ func (c *Driver) Invalidate(cacheName string, key interface{}) error {
 	return c.send(msg)
 }
 
+// InvalidateAll removes all keys from the cache store
+// it's atomic only for local data
 func (c *Driver) InvalidateAll(cacheName string) {
 	c.inmemory.InvalidateAll(cacheName)
 	msg := message{
@@ -74,10 +79,12 @@ func (c *Driver) InvalidateAll(cacheName string) {
 	_ = c.send(msg)
 }
 
+// Set saves key to the cache store
 func (c *Driver) Set(cacheName string, key interface{}, val []byte, ttl time.Duration) (err error) {
 	return c.inmemory.Set(cacheName, cachery.Key(key), val, ttl)
 }
 
+// Get loads key from the cache store if it is not outdated
 func (c *Driver) Get(cacheName string, key interface{}) (val []byte, ttl time.Duration, err error) {
 	return c.inmemory.Get(cacheName, cachery.Key(key))
 }

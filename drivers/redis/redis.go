@@ -7,16 +7,19 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
+// Driver type satisfies cachery.Driver interface
 type Driver struct {
 	client *redis.Pool
 }
 
+// New creates redis driver instance
 func New(redis *redis.Pool) *Driver {
 	driver := new(Driver)
 	driver.client = redis
 	return driver
 }
 
+// DefaultPool creates redis pool with single host
 func DefaultPool(host string, maxIdle int, idleTimeout time.Duration) *redis.Pool {
 	return &redis.Pool{
 		MaxIdle:     maxIdle,
@@ -25,14 +28,17 @@ func DefaultPool(host string, maxIdle int, idleTimeout time.Duration) *redis.Poo
 	}
 }
 
+// Invalidate removes the key from the cache store
 func (c *Driver) Invalidate(cacheName string, key interface{}) error {
 	return c.del(cacheName, cachery.Key(key))
 }
 
+// InvalidateAll removes all keys from the cache store
 func (c *Driver) InvalidateAll(cacheName string) {
 	_ = c.delSet(cacheName)
 }
 
+// Set saves key to the cache store
 func (c *Driver) Set(cacheName string, key interface{}, val []byte, ttl time.Duration) (err error) {
 	skey := cachery.Key(key)
 	client := c.client.Get()
@@ -57,6 +63,7 @@ func (c *Driver) Set(cacheName string, key interface{}, val []byte, ttl time.Dur
 	return
 }
 
+// Get loads key from the cache store if it is not outdated
 func (c *Driver) Get(cacheName string, key interface{}) (val []byte, ttl time.Duration, err error) {
 	skey := cachery.Key(key)
 	client := c.client.Get()

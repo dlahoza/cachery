@@ -3,6 +3,7 @@ package cachery
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 )
 
 // Serializer describes serializer interface
@@ -29,4 +30,17 @@ func (GobSerializer) Serialize(obj interface{}) ([]byte, error) {
 func (GobSerializer) Deserialize(src []byte, obj interface{}) error {
 	d := gob.NewDecoder(bytes.NewReader(src))
 	return d.Decode(obj)
+}
+
+// JSONSerializer implements Serializer with JSON serialization
+type JSONSerializer struct{}
+
+// Serialize serializes object to []byte
+func (JSONSerializer) Serialize(obj interface{}) ([]byte, error) {
+	return json.Marshal(obj)
+}
+
+// Deserialize deserializes []byte to object
+func (JSONSerializer) Deserialize(src []byte, obj interface{}) error {
+	return json.Unmarshal(src, obj)
 }
