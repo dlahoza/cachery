@@ -58,7 +58,7 @@ func TestSerializer(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		orig = append(orig, A{
 			Name:     randString(16),
-			BirthDay: time.Now().Round(time.Nanosecond),
+			BirthDay: time.Now().UTC().Round(time.Millisecond),
 			Phone:    randString(10),
 			Siblings: rand.Intn(5),
 			Spouse:   rand.Intn(2) == 1,
