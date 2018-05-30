@@ -28,7 +28,7 @@ import (
 )
 
 //
-// This is a mock of the driver. It could be used to test github.com/DLag/cachery behaviour.
+// This is a mock of the driver. It could be used to test github.com/DLag/cachery behavior.
 //
 
 // Driver type satisfies cachery.Driver interface
