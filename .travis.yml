@@ -11,8 +11,6 @@ install:
 - docker run -d --name redis -p6379:6379 redis
 - go get -t ./...
 - go get github.com/mattn/goveralls
-- go get github.com/go-playground/overalls
-- go get github.com/wadey/gocovmerge
 - go get -u honnef.co/go/tools/cmd/megacheck
 - go get -u github.com/client9/misspell/cmd/misspell
 before_script:

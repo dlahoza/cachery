@@ -1,7 +1,7 @@
 
 #!/bin/bash -e
 
-overalls -project=github.com/DLag/cachery -debug  -covermode=atomic -- -v
+go test -covermode=atomic -cover -coverprofile cover.out -v ./...
 
-$HOME/gopath/bin/goveralls -coverprofile=overalls.coverprofile -service travis-ci
-rm -rf *.coverprofile */*/*.coverprofile
+$HOME/gopath/bin/goveralls -coverprofile=cover.out -service travis-ci
+rm -f cover.out
