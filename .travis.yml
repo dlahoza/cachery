@@ -10,7 +10,6 @@ install:
 - docker run -d --name nats -p 4222:4222 -p 6222:6222 -p 8222:8222 nats
 - docker run -d --name redis -p6379:6379 redis
 - go get -t ./...
-- go get github.com/nats-io/gnatsd
 - go get github.com/mattn/goveralls
 - go get github.com/wadey/gocovmerge
 - go get -u honnef.co/go/tools/cmd/megacheck

@@ -54,9 +54,9 @@ func TestSerializer(t *testing.T) {
 		"Gob":  new(GobSerializer),
 		"JSON": new(JSONSerializer),
 	}
-	orig := make([]*A, 0, 1000)
+	orig := make([]A, 0, 1000)
 	for i := 0; i < 1000; i++ {
-		orig = append(orig, &A{
+		orig = append(orig, A{
 			Name:     randString(16),
 			BirthDay: time.Now().Round(time.Nanosecond),
 			Phone:    randString(10),
@@ -70,7 +70,7 @@ func TestSerializer(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			buf, err := tt[k].Serialize(orig)
 			a.NoError(err)
-			var dst []*A
+			var dst []A
 			err = tt[k].Deserialize(buf, &dst)
 			a.NoError(err)
 			a.EqualValues(orig, dst)
