@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testErr = errors.New("TEST ERROR")
+var errTest = errors.New("TEST ERROR")
 
 type cacheFetcher struct {
 	values map[interface{}]interface{}
@@ -42,7 +42,7 @@ func (f *cacheFetcher) fetch(key interface{}) (interface{}, error) {
 	if val, ok := f.values[key]; ok {
 		return val, nil
 	}
-	return nil, testErr
+	return nil, errTest
 }
 
 func TestDriver_Cache1SetAndGet(t *testing.T) {

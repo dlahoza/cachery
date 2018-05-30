@@ -42,6 +42,7 @@ type Cache interface {
 	InvalidateAll()
 }
 
+// Driver describes storage driver interface
 type Driver interface {
 	// Get loads key from the cache store if it is not outdated
 	Get(cacheName string, key interface{}) (val []byte, ttl time.Duration, err error)
