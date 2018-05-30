@@ -28,21 +28,31 @@ import (
 
 	"github.com/DLag/cachery/drivers/mock"
 	"github.com/stretchr/testify/assert"
+	"sync"
 )
 
-var testErr = errors.New("TEST ERROR")
+var errTest = errors.New("TEST ERROR")
 
 type cacheFetcher struct {
 	values map[interface{}]interface{}
 	calls  int
+	sync.Mutex
 }
 
 func (f *cacheFetcher) fetch(key interface{}) (interface{}, error) {
+	f.Lock()
+	defer f.Unlock()
 	f.calls++
 	if val, ok := f.values[key]; ok {
 		return val, nil
 	}
-	return nil, testErr
+	return nil, errTest
+}
+
+func (f *cacheFetcher) Calls() int {
+	f.Lock()
+	defer f.Unlock()
+	return f.calls
 }
 
 func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
@@ -90,22 +100,22 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		var val int
 		wrongKey := "wrong"
 		d1.On("Get", c1.Name(), wrongKey).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Get", c1.Name(), wrongKey).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		err := c1.Get(wrongKey, &val, c1Fetcher.fetch)
 		d1.AssertExpectations(t)
 		a.Error(err)
 		a.IsType(int(0), val)
 		a.Equal(0, val)
-		a.Equal(1, c1Fetcher.calls)
+		a.Equal(1, c1Fetcher.Calls())
 		d1.AssertExpectations(t)
 	})
 	t.Run("NoCache", func(t *testing.T) {
 		var val int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, valSerialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -115,7 +125,7 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 		d1.AssertExpectations(t)
 	})
 	t.Run("StaleCache", func(t *testing.T) {
@@ -129,7 +139,7 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 		d1.AssertExpectations(t)
 	})
 	t.Run("BackgroundFetch", func(t *testing.T) {
@@ -146,7 +156,7 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		a.IsType(int(0), val)
 		a.Equal(1, val)
 		time.Sleep(100 * time.Millisecond)
-		a.Equal(3, c1Fetcher.calls)
+		a.Equal(3, c1Fetcher.Calls())
 		d1.AssertExpectations(t)
 	})
 	t.Run("Expired", func(t *testing.T) {
@@ -154,7 +164,7 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		var val int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, valSerialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -164,7 +174,7 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
-		a.Equal(4, c1Fetcher.calls)
+		a.Equal(4, c1Fetcher.Calls())
 		d1.AssertExpectations(t)
 	})
 }
@@ -216,7 +226,7 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 
 	t.Run("NoCache", func(t *testing.T) {
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d2.On("Set", c2.Name(), key, valSerialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
@@ -227,7 +237,7 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
 	})
 	t.Run("StaleCache", func(t *testing.T) {
@@ -239,7 +249,7 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
 	})
 	t.Run("BackgroundFetch", func(t *testing.T) {
@@ -254,13 +264,13 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
 		time.Sleep(100 * time.Millisecond)
-		a.Equal(2, c2Fetcher.calls)
+		a.Equal(2, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
 	})
 	t.Run("Expired", func(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d2.On("Set", c2.Name(), key, valSerialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
@@ -270,7 +280,7 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
-		a.Equal(3, c2Fetcher.calls)
+		a.Equal(3, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
 	})
 }
@@ -333,7 +343,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 	t.Run("NoCache", func(t *testing.T) {
 		var val1, val2 int
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -342,10 +352,10 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(1, c1Fetcher.calls)
+		a.Equal(1, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
@@ -355,7 +365,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 		d1.AssertExpectations(t)
 		d2.AssertExpectations(t)
 	})
@@ -365,7 +375,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -375,7 +385,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
@@ -383,7 +393,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 		d1.AssertExpectations(t)
 		d2.AssertExpectations(t)
 	})
@@ -399,10 +409,10 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
@@ -412,7 +422,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(2, c2Fetcher.calls)
+		a.Equal(2, c2Fetcher.Calls())
 		d1.AssertExpectations(t)
 		d2.AssertExpectations(t)
 	})
@@ -423,7 +433,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -433,7 +443,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(3, c1Fetcher.calls)
+		a.Equal(3, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
@@ -441,7 +451,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(2, c2Fetcher.calls)
+		a.Equal(2, c2Fetcher.Calls())
 		d1.AssertExpectations(t)
 		d2.AssertExpectations(t)
 	})
@@ -453,7 +463,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -463,10 +473,10 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(4, c1Fetcher.calls)
+		a.Equal(4, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
@@ -476,7 +486,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(3, c2Fetcher.calls)
+		a.Equal(3, c2Fetcher.Calls())
 		d1.AssertExpectations(t)
 		d2.AssertExpectations(t)
 	})
@@ -487,7 +497,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -497,7 +507,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(5, c1Fetcher.calls)
+		a.Equal(5, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
@@ -505,7 +515,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(3, c2Fetcher.calls)
+		a.Equal(3, c2Fetcher.Calls())
 		d1.AssertExpectations(t)
 		d2.AssertExpectations(t)
 	})
@@ -517,7 +527,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
@@ -527,10 +537,10 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(6, c1Fetcher.calls)
+		a.Equal(6, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), testErr).Once()
+			Return([]byte(nil), time.Duration(0), errTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
@@ -539,7 +549,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(4, c2Fetcher.calls)
+		a.Equal(4, c2Fetcher.Calls())
 		d1.AssertExpectations(t)
 		d2.AssertExpectations(t)
 	})

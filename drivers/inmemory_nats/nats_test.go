@@ -29,6 +29,7 @@ import (
 	"github.com/DLag/cachery"
 	"github.com/nats-io/go-nats"
 	"github.com/stretchr/testify/assert"
+	"sync"
 )
 
 var errTest = errors.New("TEST ERROR")
@@ -36,14 +37,23 @@ var errTest = errors.New("TEST ERROR")
 type cacheFetcher struct {
 	values map[interface{}]interface{}
 	calls  int
+	sync.Mutex
 }
 
 func (f *cacheFetcher) fetch(key interface{}) (interface{}, error) {
+	f.Lock()
+	defer f.Unlock()
 	f.calls++
 	if val, ok := f.values[key]; ok {
 		return val, nil
 	}
 	return nil, errTest
+}
+
+func (f *cacheFetcher) Calls() int {
+	f.Lock()
+	defer f.Unlock()
+	return f.calls
 }
 
 func TestDriver_Cache1SetAndGet(t *testing.T) {
@@ -92,7 +102,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 		a.Error(err)
 		a.IsType(int(0), val)
 		a.Equal(0, val)
-		a.Equal(1, c1Fetcher.calls)
+		a.Equal(1, c1Fetcher.Calls())
 	})
 	t.Run("NoCache", func(t *testing.T) {
 		var val int
@@ -101,7 +111,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 	})
 	t.Run("Cached", func(t *testing.T) {
 		time.Sleep(time.Millisecond * 500)
@@ -111,7 +121,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 	})
 	t.Run("StaleCache", func(t *testing.T) {
 		time.Sleep(time.Second)
@@ -122,7 +132,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 		a.IsType(int(0), val)
 		a.Equal(1, val)
 		time.Sleep(100 * time.Millisecond)
-		a.Equal(3, c1Fetcher.calls)
+		a.Equal(3, c1Fetcher.Calls())
 	})
 	t.Run("Expired", func(t *testing.T) {
 		time.Sleep(3 * time.Second)
@@ -132,7 +142,7 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
-		a.Equal(4, c1Fetcher.calls)
+		a.Equal(4, c1Fetcher.Calls())
 	})
 }
 
@@ -185,7 +195,7 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 	})
 	t.Run("Cached", func(t *testing.T) {
 		time.Sleep(time.Millisecond * 500)
@@ -194,7 +204,7 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 	})
 	t.Run("StaleCache", func(t *testing.T) {
 		time.Sleep(3 * time.Second)
@@ -204,7 +214,7 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
 		time.Sleep(100 * time.Millisecond)
-		a.Equal(2, c2Fetcher.calls)
+		a.Equal(2, c2Fetcher.Calls())
 	})
 	t.Run("Expired", func(t *testing.T) {
 		time.Sleep(5 * time.Second)
@@ -213,7 +223,7 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 		a.NoError(err)
 		a.IsType(TestType{}, val)
 		a.Equal(c2Fetcher.values[key], val)
-		a.Equal(3, c2Fetcher.calls)
+		a.Equal(3, c2Fetcher.Calls())
 	})
 }
 
@@ -275,13 +285,13 @@ func TestDriver_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(1, c1Fetcher.calls)
+		a.Equal(1, c1Fetcher.Calls())
 
 		err = c2.Get("a", &val2, c2Fetcher.fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 	})
 	t.Run("InvalidateCache1", func(t *testing.T) {
 		c1.Invalidate(key)
@@ -292,13 +302,13 @@ func TestDriver_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 
 		err = c2.Get("a", &val2, c2Fetcher.fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(1, c2Fetcher.calls)
+		a.Equal(1, c2Fetcher.Calls())
 	})
 	t.Run("InvalidateCache2", func(t *testing.T) {
 		c2.Invalidate("a")
@@ -309,13 +319,13 @@ func TestDriver_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(2, c1Fetcher.calls)
+		a.Equal(2, c1Fetcher.Calls())
 
 		err = c2.Get("a", &val2, c2Fetcher.fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(2, c2Fetcher.calls)
+		a.Equal(2, c2Fetcher.Calls())
 	})
 	t.Run("InvalidateTag1", func(t *testing.T) {
 		c1.InvalidateTags("tag1")
@@ -327,13 +337,13 @@ func TestDriver_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(3, c1Fetcher.calls)
+		a.Equal(3, c1Fetcher.Calls())
 
 		err = c2.Get("a", &val2, c2Fetcher.fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(2, c2Fetcher.calls)
+		a.Equal(2, c2Fetcher.Calls())
 	})
 	t.Run("InvalidateTag12", func(t *testing.T) {
 		c1.InvalidateTags("tag12")
@@ -345,13 +355,13 @@ func TestDriver_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(4, c1Fetcher.calls)
+		a.Equal(4, c1Fetcher.Calls())
 
 		err = c2.Get("a", &val2, c2Fetcher.fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(3, c2Fetcher.calls)
+		a.Equal(3, c2Fetcher.Calls())
 	})
 
 	t.Run("InvalidateTag1OnManager", func(t *testing.T) {
@@ -363,13 +373,13 @@ func TestDriver_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(5, c1Fetcher.calls)
+		a.Equal(5, c1Fetcher.Calls())
 
 		err = c2.Get("a", &val2, c2Fetcher.fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(3, c2Fetcher.calls)
+		a.Equal(3, c2Fetcher.Calls())
 	})
 
 	t.Run("InvalidateAllOnManager", func(t *testing.T) {
@@ -381,12 +391,12 @@ func TestDriver_Invalidate(t *testing.T) {
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
-		a.Equal(6, c1Fetcher.calls)
+		a.Equal(6, c1Fetcher.Calls())
 
 		err = c2.Get("a", &val2, c2Fetcher.fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
-		a.Equal(4, c2Fetcher.calls)
+		a.Equal(4, c2Fetcher.Calls())
 	})
 }
