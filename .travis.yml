@@ -4,7 +4,11 @@ go:
 - 1.10.x
 - 1.9.x
 - 1.8.x
+services:
+  - docker
 install:
+- docker run -d --name nats -p 4222:4222 -p 6222:6222 -p 8222:8222 nats
+- docker run -d --name redis -p6379:6379 redis
 - go get -t ./...
 - go get github.com/nats-io/gnatsd
 - go get github.com/mattn/goveralls
