@@ -22,7 +22,6 @@
 package cachery
 
 import (
-	"expvar"
 	"sync"
 	"sync/atomic"
 
@@ -31,23 +30,17 @@ import (
 
 // DefaultCache default implementation of caching logic
 type DefaultCache struct {
-	name       string
-	config     Config
-	driver     Driver
-	updating   int32
-	fetchLock  sync.RWMutex
-	expvar     *expvar.Map
-	serializer Serializer
+	name      string
+	config    Config
+	updating  int32
+	fetchLock sync.RWMutex
 }
 
 // NewDefault creates an instance of DefaultCache
-func NewDefault(name string, config Config, driver Driver, expvar *expvar.Map) *DefaultCache {
+func NewDefault(name string, config Config) *DefaultCache {
 	cache := new(DefaultCache)
 	cache.name = name
-	cache.driver = driver
-	cache.expvar = expvar
 	cache.config = config
-	cache.serializer = config.Serializer
 	return cache
 }
 
@@ -62,11 +55,11 @@ func (c *DefaultCache) Get(key interface{}, obj interface{}, fetcher Fetcher) er
 	for {
 		// Trying to get item from Redis server
 		attempts++
-		val, ttl, err := c.driver.Get(c.name, key)
+		val, ttl, err := c.config.Driver.Get(c.name, key)
 		c.expvarAdd("gets", 1)
 		if err == nil {
 			// Item isn't expired
-			err = c.serializer.Deserialize(val, obj)
+			err = c.config.Serializer.Deserialize(val, obj)
 			// If object is expired but still alive use stale value but start background update
 			if (c.config.Lifetime - c.config.Expire) > ttl {
 				c.expvarAdd("stale", 1)
@@ -88,7 +81,7 @@ func (c *DefaultCache) Get(key interface{}, obj interface{}, fetcher Fetcher) er
 // Invalidate specific key
 func (c *DefaultCache) Invalidate(key interface{}) error {
 	c.expvarAdd("invalidate_key", 1)
-	return c.driver.Invalidate(c.name, key)
+	return c.config.Driver.Invalidate(c.name, key)
 }
 
 // InvalidateTags invalidates cache if finds necessary tags
@@ -97,7 +90,7 @@ func (c *DefaultCache) InvalidateTags(tags ...string) {
 	for _, t := range tags {
 		for _, ct := range c.config.Tags {
 			if ct == t {
-				c.driver.InvalidateAll(c.name)
+				c.config.Driver.InvalidateAll(c.name)
 				return
 			}
 		}
@@ -107,12 +100,12 @@ func (c *DefaultCache) InvalidateTags(tags ...string) {
 // InvalidateAll invalidates all data from this cache
 func (c *DefaultCache) InvalidateAll() {
 	c.expvarAdd("invalidate_all", 1)
-	c.driver.InvalidateAll(c.name)
+	c.config.Driver.InvalidateAll(c.name)
 }
 
 func (c *DefaultCache) expvarAdd(key string, delta int64) {
-	if c.expvar != nil {
-		c.expvar.Add(key, delta)
+	if c.config.Expvar != nil {
+		c.config.Expvar.Add(key, delta)
 	}
 }
 
@@ -129,12 +122,12 @@ func (c *DefaultCache) fetch(key interface{}, fetcher Fetcher) {
 			return
 		}
 		// Writing to Redis
-		val, err := c.serializer.Serialize(obj)
+		val, err := c.config.Serializer.Serialize(obj)
 		if err != nil {
 			c.expvarAdd("fetch_serialize_errors", 1)
 			return
 		}
-		err = c.driver.Set(c.name, key, val, c.config.Lifetime)
+		err = c.config.Driver.Set(c.name, key, val, c.config.Lifetime)
 		c.expvarAdd("sets", 1)
 		if err != nil {
 			c.expvarAdd("fetch_write_to_cache_errors", 1)

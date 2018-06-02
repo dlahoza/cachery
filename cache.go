@@ -22,6 +22,7 @@
 package cachery
 
 import (
+	"expvar"
 	"time"
 )
 
@@ -64,4 +65,8 @@ type Config struct {
 	Tags []string
 	// Serializer for objects
 	Serializer Serializer
+	// Driver cache storage driver (e.g. Redis, Memcached, Memory)
+	Driver Driver
+	// Expvar instance of *expvar.Map to save cache statistics
+	Expvar *expvar.Map
 }

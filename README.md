@@ -1,7 +1,42 @@
-# Cachery - caching framework
-Modular and featurerich caching framework with cluster cache and invalidation by tags support
+Cachery - caching framework
+================================
 
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDLag%2Fcachery.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDLag%2Fcachery?ref=badge_shield)
 [![Build Status](https://travis-ci.org/DLag/cachery.svg?branch=master)](https://travis-ci.org/DLag/cachery)
 [![Coverage Status](https://coveralls.io/repos/github/DLag/cachery/badge.svg?branch=master)](https://coveralls.io/github/DLag/cachery?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/DLag/cachery)](https://goreportcard.com/report/github.com/DLag/cachery)
 [![GoDoc](https://godoc.org/github.com/DLag/cachery?status.svg)](http://godoc.org/github.com/DLag/cachery)
+
+Modular and feature-rich caching framework
+
+Features include:
+
+* Multiple cache pools
+* Invalidation grouping with tags
+* Cluster support
+* Expire and stale behavior
+* Expvar support
+* Modularity:
+  * serializers
+  * cache logic modules
+  * storage drivers
+
+## Quickstart
+### Install/Update
+ go get -u github.com/DLag/cachery
+### Basic usage
+import
+
+## Staying up to date
+
+To update Cachery to the latest version, use `go get -u github.com/DLag/cachery`.
+
+## Supported go versions
+
+We support the three major Go versions, which are 1.8, 1.9 and 1.10 at the moment.
+
+## Contributing
+
+Please feel free to submit issues, fork the repository and send pull requests!
+
+When submitting an issue, we ask that you please include a complete test function that demonstrates the issue.  Extra kudos for those using Cachery to write the test code that demonstrates it.

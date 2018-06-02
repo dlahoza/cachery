@@ -26,10 +26,11 @@ import (
 	"testing"
 	"time"
 
+	"sync"
+
 	"github.com/DLag/cachery"
 	"github.com/nats-io/go-nats"
 	"github.com/stretchr/testify/assert"
-	"sync"
 )
 
 var errTest = errors.New("TEST ERROR")
@@ -71,18 +72,15 @@ func TestDriver_Cache1SetAndGet(t *testing.T) {
 		m.Add(cachery.NewDefault("CACHE1", cachery.Config{
 			Expire:     time.Second * 1,
 			Lifetime:   time.Second * 3,
+			Driver:     d,
 			Serializer: s,
-		},
-			d,
-			nil,
-		),
+		}),
 			cachery.NewDefault("CACHE2", cachery.Config{
 				Expire:     time.Second * 3,
 				Lifetime:   time.Second * 5,
+				Driver:     d,
 				Serializer: s,
-			},
-				d,
-				nil),
+			}),
 		)
 	})
 
@@ -168,18 +166,15 @@ func TestDriver_Cache2SetAndGet(t *testing.T) {
 		m.Add(cachery.NewDefault("CACHE1", cachery.Config{
 			Expire:     time.Second * 1,
 			Lifetime:   time.Second * 3,
+			Driver:     d,
 			Serializer: s,
-		},
-			d,
-			nil,
-		),
+		}),
 			cachery.NewDefault("CACHE2", cachery.Config{
 				Expire:     time.Second * 3,
 				Lifetime:   time.Second * 5,
+				Driver:     d,
 				Serializer: s,
-			},
-				d,
-				nil),
+			}),
 		)
 	})
 
@@ -254,18 +249,15 @@ func TestDriver_Invalidate(t *testing.T) {
 			Lifetime:   time.Second * 3,
 			Serializer: s,
 			Tags:       []string{"tag12", "tag1"},
-		},
-			d1,
-			nil,
-		),
+			Driver:     d1,
+		}),
 			cachery.NewDefault("CACHE2", cachery.Config{
 				Expire:     time.Second * 3,
 				Lifetime:   time.Second * 5,
 				Serializer: s,
 				Tags:       []string{"tag12", "tag2"},
-			},
-				d2,
-				nil),
+				Driver:     d2,
+			}),
 		)
 	})
 

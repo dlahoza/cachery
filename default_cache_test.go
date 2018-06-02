@@ -26,9 +26,10 @@ import (
 	"testing"
 	"time"
 
+	"sync"
+
 	"github.com/DLag/cachery/drivers/mock"
 	"github.com/stretchr/testify/assert"
-	"sync"
 )
 
 var errTest = errors.New("TEST ERROR")
@@ -71,18 +72,15 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		m.Add(NewDefault("CACHE1", Config{
 			Expire:     time.Second * 1,
 			Lifetime:   time.Second * 3,
+			Driver:     d1,
 			Serializer: s,
-		},
-			d1,
-			nil,
-		),
+		}),
 			NewDefault("CACHE2", Config{
 				Expire:     time.Second * 3,
 				Lifetime:   time.Second * 5,
+				Driver:     d2,
 				Serializer: s,
-			},
-				d2,
-				nil),
+			}),
 		)
 	})
 
@@ -200,21 +198,19 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 	valSerialized, _ := s.Serialize(c2Fetcher.values[key])
 
 	t.Run("Init", func(t *testing.T) {
-		m.Add(NewDefault("CACHE1", Config{
-			Expire:     time.Second * 1,
-			Lifetime:   time.Second * 3,
-			Serializer: s,
-		},
-			d1,
-			nil,
-		),
+		m.Add(NewDefault("CACHE1",
+			Config{
+				Expire:     time.Second * 1,
+				Lifetime:   time.Second * 3,
+				Driver:     d1,
+				Serializer: s,
+			}),
 			NewDefault("CACHE2", Config{
 				Expire:     time.Second * 3,
 				Lifetime:   time.Second * 5,
+				Driver:     d2,
 				Serializer: s,
-			},
-				d2,
-				nil),
+			}),
 		)
 	})
 
@@ -312,20 +308,17 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		m.Add(NewDefault("CACHE1", Config{
 			Expire:     time.Second * 1,
 			Lifetime:   time.Second * 3,
+			Driver:     d1,
 			Serializer: s,
 			Tags:       []string{"tag12", "tag1"},
-		},
-			d1,
-			nil,
-		),
+		}),
 			NewDefault("CACHE2", Config{
 				Expire:     time.Second * 3,
 				Lifetime:   time.Second * 5,
+				Driver:     d2,
 				Serializer: s,
 				Tags:       []string{"tag12", "tag2"},
-			},
-				d2,
-				nil),
+			}),
 		)
 	})
 
