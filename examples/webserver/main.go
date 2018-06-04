@@ -24,11 +24,12 @@
 package main
 
 import (
-	"net/http"
-	"github.com/gorilla/mux"
 	"encoding/json"
-	"github.com/DLag/cachery"
+	"net/http"
 	"os"
+
+	"github.com/DLag/cachery"
+	"github.com/gorilla/mux"
 )
 
 func router() *mux.Router {

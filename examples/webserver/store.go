@@ -24,34 +24,33 @@
 package main
 
 import (
-	"math/rand"
 	"fmt"
+	"math/rand"
 	"time"
 )
 
 type order struct {
-	Id int
+	Id   int
 	User int
 	Good int
 }
 
 type good struct {
-	Id int
+	Id   int
 	Name string
 }
 
 var (
-	goods []good
+	goods  []good
 	orders []order
 )
 
-
 func init() {
-	for i:=0; i < 10; i++ {
+	for i := 0; i < 10; i++ {
 		id := rand.Int()
-		goods = append(goods, good{ Id: id, Name: fmt.Sprintf("Good %d", id)})
+		goods = append(goods, good{Id: id, Name: fmt.Sprintf("Good %d", id)})
 	}
-	for i:=0; i < 20; i++ {
+	for i := 0; i < 20; i++ {
 		orders = append(orders, order{Id: rand.Int(), User: rand.Int(), Good: rand.Int()})
 	}
 }

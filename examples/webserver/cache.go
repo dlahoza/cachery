@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/DLag/cachery"
-	"github.com/DLag/cachery/drivers/redis"
 	"github.com/DLag/cachery/drivers/inmemory"
 	"github.com/DLag/cachery/drivers/inmemory_nats"
+	"github.com/DLag/cachery/drivers/redis"
 )
 
 var expvarMap = expvar.NewMap("cachery")
