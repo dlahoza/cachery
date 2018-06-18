@@ -29,8 +29,8 @@ import (
 
 	"github.com/DLag/cachery"
 	"github.com/DLag/cachery/drivers/inmemory"
-	"github.com/DLag/cachery/drivers/inmemory_nats"
 	"github.com/DLag/cachery/drivers/redis"
+	"github.com/DLag/cachery/wrappers/nats"
 )
 
 var expvarMap = expvar.NewMap("cachery")
@@ -46,7 +46,7 @@ func initInMemCache() {
 }
 
 func initInMemNATSCache() {
-	driver := inmemory_nats.Default("nats://localhost:4222", "cachery")
+	driver := nats.Default(inmemory.Default(), "nats://localhost:4222", "cachery")
 	cachery.Add(generateCacheInstance("nats", driver)...)
 }
 
