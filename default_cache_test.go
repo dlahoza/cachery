@@ -22,43 +22,43 @@
 package cachery
 
 import (
-	"errors"
 	"testing"
 	"time"
 
+	"errors"
 	"sync"
 
 	"github.com/DLag/cachery/drivers/mock"
 	"github.com/stretchr/testify/assert"
 )
 
-var errTest = errors.New("TEST ERROR")
+var ErrTest = errors.New("TEST ERROR")
 
-type cacheFetcher struct {
-	values map[interface{}]interface{}
+type CacheFetcher struct {
+	Values map[interface{}]interface{}
 	calls  int
 	sync.Mutex
 }
 
-func (f *cacheFetcher) fetch(key interface{}) (interface{}, error) {
+func (f *CacheFetcher) Fetch(key interface{}) (interface{}, error) {
 	f.Lock()
 	defer f.Unlock()
 	f.calls++
-	if val, ok := f.values[key]; ok {
+	if val, ok := f.Values[key]; ok {
 		return val, nil
 	}
-	return nil, errTest
+	return nil, ErrTest
 }
 
-func (f *cacheFetcher) Calls() int {
+func (f *CacheFetcher) Calls() int {
 	f.Lock()
 	defer f.Unlock()
 	return f.calls
 }
 
 func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
-	c1Fetcher := cacheFetcher{
-		values: map[interface{}]interface{}{
+	c1Fetcher := CacheFetcher{
+		Values: map[interface{}]interface{}{
 			"a": 1,
 			"b": 2,
 		},
@@ -93,15 +93,15 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 	a.Nil(m.Get("NOCACHE"))
 
 	key := "a"
-	valSerialized, _ := s.Serialize(c1Fetcher.values[key])
+	valSerialized, _ := s.Serialize(c1Fetcher.Values[key])
 	t.Run("NoKey", func(t *testing.T) {
 		var val int
 		wrongKey := "wrong"
 		d1.On("Get", c1.Name(), wrongKey).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Get", c1.Name(), wrongKey).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
-		err := c1.Get(wrongKey, &val, c1Fetcher.fetch)
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
+		err := c1.Get(wrongKey, &val, c1Fetcher.Fetch)
 		d1.AssertExpectations(t)
 		a.Error(err)
 		a.IsType(int(0), val)
@@ -113,12 +113,12 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		var val int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, valSerialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(valSerialized, time.Second*3, nil).Once()
-		err := c1.Get(key, &val, c1Fetcher.fetch)
+		err := c1.Get(key, &val, c1Fetcher.Fetch)
 		d1.AssertExpectations(t)
 		a.NoError(err)
 		a.IsType(int(0), val)
@@ -133,7 +133,7 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		d1.On("Get", c1.Name(), key).
 			Return(valSerialized, time.Second*2, nil).Once()
 
-		err := c1.Get(key, &val, c1Fetcher.fetch)
+		err := c1.Get(key, &val, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
@@ -149,7 +149,7 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		d1.On("Set", c1.Name(), key, valSerialized, time.Second*3).
 			Return(nil).Once()
 
-		err := c1.Get("a", &val, c1Fetcher.fetch)
+		err := c1.Get("a", &val, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
@@ -162,13 +162,13 @@ func TestDefaultCache_Cache1SetAndGet(t *testing.T) {
 		var val int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, valSerialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(valSerialized, time.Second*3, nil).Once()
 
-		err := c1.Get("a", &val, c1Fetcher.fetch)
+		err := c1.Get("a", &val, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val)
 		a.Equal(1, val)
@@ -183,8 +183,8 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 		S string
 	}
 
-	c2Fetcher := cacheFetcher{
-		values: map[interface{}]interface{}{
+	c2Fetcher := CacheFetcher{
+		Values: map[interface{}]interface{}{
 			"a": TestType{"aa"},
 			"b": TestType{"bb"},
 		},
@@ -195,7 +195,7 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 	d1 := new(mock.Driver)
 	d2 := new(mock.Driver)
 	key := "a"
-	valSerialized, _ := s.Serialize(c2Fetcher.values[key])
+	valSerialized, _ := s.Serialize(c2Fetcher.Values[key])
 
 	t.Run("Init", func(t *testing.T) {
 		m.Add(NewDefault("CACHE1",
@@ -222,17 +222,17 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 
 	t.Run("NoCache", func(t *testing.T) {
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d2.On("Set", c2.Name(), key, valSerialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
 			Return(valSerialized, time.Second*5, nil).Once()
 
 		var val TestType
-		err := c2.Get(key, &val, c2Fetcher.fetch)
+		err := c2.Get(key, &val, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(TestType{}, val)
-		a.Equal(c2Fetcher.values[key], val)
+		a.Equal(c2Fetcher.Values[key], val)
 		a.Equal(1, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
 	})
@@ -241,10 +241,10 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 		d2.On("Get", c2.Name(), key).
 			Return(valSerialized, time.Second*4, nil).Once()
 		var val TestType
-		err := c2.Get(key, &val, c2Fetcher.fetch)
+		err := c2.Get(key, &val, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(TestType{}, val)
-		a.Equal(c2Fetcher.values[key], val)
+		a.Equal(c2Fetcher.Values[key], val)
 		a.Equal(1, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
 	})
@@ -255,10 +255,10 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 		d2.On("Set", c2.Name(), key, valSerialized, time.Second*5).
 			Return(nil).Once()
 		var val TestType
-		err := c2.Get(key, &val, c2Fetcher.fetch)
+		err := c2.Get(key, &val, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(TestType{}, val)
-		a.Equal(c2Fetcher.values[key], val)
+		a.Equal(c2Fetcher.Values[key], val)
 		time.Sleep(100 * time.Millisecond)
 		a.Equal(2, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
@@ -266,16 +266,16 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 	t.Run("Expired", func(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d2.On("Set", c2.Name(), key, valSerialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
 			Return(valSerialized, time.Second*5, nil).Once()
 		var val TestType
-		err := c2.Get(key, &val, c2Fetcher.fetch)
+		err := c2.Get(key, &val, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(TestType{}, val)
-		a.Equal(c2Fetcher.values[key], val)
+		a.Equal(c2Fetcher.Values[key], val)
 		a.Equal(3, c2Fetcher.Calls())
 		d2.AssertExpectations(t)
 	})
@@ -283,14 +283,14 @@ func TestDefaultCache_Cache2SetAndGet(t *testing.T) {
 
 func TestDefaultCache_Invalidate(t *testing.T) {
 	a := assert.New(t)
-	c1Fetcher := cacheFetcher{
-		values: map[interface{}]interface{}{
+	c1Fetcher := CacheFetcher{
+		Values: map[interface{}]interface{}{
 			"a": 1,
 			"b": 2,
 		},
 	}
-	c2Fetcher := cacheFetcher{
-		values: map[interface{}]interface{}{
+	c2Fetcher := CacheFetcher{
+		Values: map[interface{}]interface{}{
 			"a": 11,
 			"b": 22,
 		},
@@ -301,8 +301,8 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 	d1 := new(mock.Driver)
 	d2 := new(mock.Driver)
 	key := "a"
-	val1Serialized, _ := s.Serialize(c1Fetcher.values[key])
-	val2Serialized, _ := s.Serialize(c2Fetcher.values[key])
+	val1Serialized, _ := s.Serialize(c1Fetcher.Values[key])
+	val2Serialized, _ := s.Serialize(c2Fetcher.Values[key])
 
 	t.Run("Init", func(t *testing.T) {
 		m.Add(NewDefault("CACHE1", Config{
@@ -336,25 +336,25 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 	t.Run("NoCache", func(t *testing.T) {
 		var val1, val2 int
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(val1Serialized, time.Second*3, nil).Once()
-		err := c1.Get("a", &val1, c1Fetcher.fetch)
+		err := c1.Get("a", &val1, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
 		a.Equal(1, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
 
-		err = c2.Get("a", &val2, c2Fetcher.fetch)
+		err = c2.Get("a", &val2, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
@@ -368,13 +368,13 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(val1Serialized, time.Second*3, nil).Once()
 
-		err := c1.Get("a", &val1, c1Fetcher.fetch)
+		err := c1.Get("a", &val1, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
@@ -382,7 +382,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
-		err = c2.Get("a", &val2, c2Fetcher.fetch)
+		err = c2.Get("a", &val2, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
@@ -398,20 +398,20 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		d1.On("Get", c1.Name(), key).
 			Return(val1Serialized, time.Second*3, nil).Once()
 
-		err := c1.Get("a", &val1, c1Fetcher.fetch)
+		err := c1.Get("a", &val1, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
 		a.Equal(2, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
 
-		err = c2.Get("a", &val2, c2Fetcher.fetch)
+		err = c2.Get("a", &val2, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
@@ -426,13 +426,13 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(val1Serialized, time.Second*3, nil).Once()
 
-		err := c1.Get("a", &val1, c1Fetcher.fetch)
+		err := c1.Get("a", &val1, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
@@ -440,7 +440,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
-		err = c2.Get("a", &val2, c2Fetcher.fetch)
+		err = c2.Get("a", &val2, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
@@ -456,26 +456,26 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(val1Serialized, time.Second*3, nil).Once()
 
-		err := c1.Get("a", &val1, c1Fetcher.fetch)
+		err := c1.Get("a", &val1, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
 		a.Equal(4, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
 
-		err = c2.Get("a", &val2, c2Fetcher.fetch)
+		err = c2.Get("a", &val2, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
@@ -490,13 +490,13 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(val1Serialized, time.Second*3, nil).Once()
 
-		err := c1.Get("a", &val1, c1Fetcher.fetch)
+		err := c1.Get("a", &val1, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
@@ -504,7 +504,7 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
-		err = c2.Get("a", &val2, c2Fetcher.fetch)
+		err = c2.Get("a", &val2, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
@@ -520,25 +520,25 @@ func TestDefaultCache_Invalidate(t *testing.T) {
 		var val1, val2 int
 
 		d1.On("Get", c1.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d1.On("Set", c1.Name(), key, val1Serialized, time.Second*3).
 			Return(nil).Once()
 		d1.On("Get", c1.Name(), key).
 			Return(val1Serialized, time.Second*3, nil).Once()
 
-		err := c1.Get("a", &val1, c1Fetcher.fetch)
+		err := c1.Get("a", &val1, c1Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val1)
 		a.Equal(1, val1)
 		a.Equal(6, c1Fetcher.Calls())
 
 		d2.On("Get", c2.Name(), key).
-			Return([]byte(nil), time.Duration(0), errTest).Once()
+			Return([]byte(nil), time.Duration(0), ErrTest).Once()
 		d2.On("Set", c2.Name(), key, val2Serialized, time.Second*5).
 			Return(nil).Once()
 		d2.On("Get", c2.Name(), key).
 			Return(val2Serialized, time.Second*5, nil).Once()
-		err = c2.Get("a", &val2, c2Fetcher.fetch)
+		err = c2.Get("a", &val2, c2Fetcher.Fetch)
 		a.NoError(err)
 		a.IsType(int(0), val2)
 		a.Equal(11, val2)
