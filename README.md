@@ -28,24 +28,49 @@ Features include:
 ### Basic usage
 ```go
 func fetcher(key interface{}) (interface{}, error) {
-	res, err := db.GetDataByKey(key)
-	return res, err
+    res, err := db.GetDataByKey(key)
+    return res, err
 }
 
-cachery.Add(cachery.NewDefault(cacheName, cachery.Config{
+// Add cache to the cache manager
+cachery.Add(cachery.NewDefault("some_cache", cachery.Config{
+    // Time after cache become stale and should be updated from fetcher in background
+    Expire: time.Second * 20,
+    // Time after cache become outdated and should be updated immediately
+    Lifetime: time.Second * 120,
+    // Serializer is reusable.
+    // There is JSON serializer as well, but it is slower and has some limitations like nanoseconds in time.Time.
     Serializer: &cachery.GobSerializer{},
+    // Driver is reusable for different caches
     Driver:     inmemory.Default(),
+    // Fetcher is function that fetch data from the underlying storage(e.g. database)
+    // could be nil if you use fetcher parameter of Get function
     Fetcher:    fetcher,
-    Expire:     time.Second,
-    Lifetime:   2 * time.Second,
+    // Expvar will be used to populate cache statistics through expvar package
+    // It could be nil if you don't need it
+    Expvar: nil,
+    // Tags allow you invalidate all caches in Manager which have specified tags
+    // could be nil
+    Tags: []string{"tag1", "tag2"},
 }))
 
+// Get cache from manager
 c := cachery.Get("some_cache")
 var val string
 
 c.Get("some_key", &val, nil)
 // Or override fetcher function from config
 c.Get("some_key", &val, fetcher)
+
+// Invalidate all cache
+c.InvalidateAll()
+// Invalidate single key
+c.Invalidate("some_key")
+
+//Invalidate all caches in manager
+cachery.InvalidateAll()
+//Invalidate caches in manager by tag
+cachery.InvalidateTags("tag1")
 ```
 
 ## Examples
