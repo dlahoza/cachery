@@ -62,7 +62,7 @@ c.Get("some_key", &val, nil)
 // Or override fetcher function from config
 c.Get("some_key", &val, fetcher)
 
-// Invalidate all cache
+// Invalidate all keys
 c.InvalidateAll()
 // Invalidate single key
 c.Invalidate("some_key")
