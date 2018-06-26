@@ -26,7 +26,32 @@ Features include:
 ### Install/Update
  go get -u github.com/DLag/cachery
 ### Basic usage
-TBD
+```go
+func fetcher(key interface{}) (interface{}, error) {
+	res, err := db.GetDataByKey(key)
+	return res, err
+}
+
+cachery.Add(cachery.NewDefault(cacheName, cachery.Config{
+    Serializer: &cachery.GobSerializer{},
+    Driver:     inmemory.Default(),
+    Fetcher:    fetcher,
+    Expire:     time.Second,
+    Lifetime:   2 * time.Second,
+}))
+
+c := cachery.Get("some_cache")
+var val string
+
+c.Get("some_key", &val, nil)
+// Or override fetcher function from config
+c.Get("some_key", &val, fetcher)
+```
+
+## Examples
+See examples to understand usage:
+* [Simple](examples/simple)
+* [Webserver](examples/webserver)
 
 ## Staying up to date
 
