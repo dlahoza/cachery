@@ -28,6 +28,8 @@ import (
 	"net/http"
 	"os"
 
+	"fmt"
+
 	"github.com/DLag/cachery"
 	"github.com/gorilla/mux"
 )
@@ -36,11 +38,11 @@ func router() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/orders", handlerOrders)
 	r.HandleFunc("/orders/{driver}", handlerOrders)
-	r.HandleFunc("/orders/invalidate/{driver}", handlerInvalidateOrders)
+	r.HandleFunc("/invalidate/orders/{driver}", handlerInvalidateOrders)
 	r.HandleFunc("/goods", handlerGoods)
 	r.HandleFunc("/goods/{driver}", handlerGoods)
-	r.HandleFunc("/goods/invalidate", handlerGoods)
-	r.HandleFunc("/goods/invalidate/{driver}", handlerInvalidateGoods)
+	r.HandleFunc("/invalidate/goods/{driver}", handlerInvalidateGoods)
+	r.HandleFunc("/invalidate/tag/{tag}", handlerInvalidateByTag)
 	return r
 }
 
@@ -62,12 +64,19 @@ func handlerInvalidateGoods(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handlerInvalidateByTag(w http.ResponseWriter, r *http.Request) {
+	if tag, ok := mux.Vars(r)["tag"]; ok {
+		cachery.InvalidateTags(tag)
+		w.Write([]byte("OK"))
+	}
+}
+
 func handlerOrders(w http.ResponseWriter, r *http.Request) {
 	var o []order
 	if driver, ok := mux.Vars(r)["driver"]; ok {
 		cacheName := driver + "_SHORT_CACHE"
 		c := cachery.Get(cacheName)
-		c.Get("", &o, fetcherOrders)
+		c.Get("", &o, nil)
 	} else {
 		o = getOrders()
 	}
@@ -80,7 +89,7 @@ func handlerGoods(w http.ResponseWriter, r *http.Request) {
 	if driver, ok := mux.Vars(r)["driver"]; ok {
 		cacheName := driver + "_LONG_CACHE"
 		c := cachery.Get(cacheName)
-		c.Get("", &g, fetcherGoods)
+		c.Get("", &g, nil)
 	} else {
 		g = getGoods()
 	}
@@ -92,5 +101,6 @@ func main() {
 	initRedisCache()
 	initInMemCache()
 	initInMemNATSCache()
+	fmt.Println("Listening on ", os.Args[1])
 	http.ListenAndServe(os.Args[1], router())
 }

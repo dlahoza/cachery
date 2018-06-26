@@ -28,6 +28,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	// ErrNilSerializer serializer in Config isn't set
+	ErrNilSerializer = errors.New("cachery: Serializer is nil")
+	// ErrNilFetcher fetcher in Get function and in Config isn't set
+	ErrNilFetcher = errors.New("cachery: Fetcher is nil")
+)
+
 // DefaultCache default implementation of caching logic
 type DefaultCache struct {
 	name      string
@@ -51,6 +58,14 @@ func (c *DefaultCache) Name() string {
 
 // Get loads data to dst from cache or from fetcher function
 func (c *DefaultCache) Get(key interface{}, obj interface{}, fetcher Fetcher) error {
+	// Use parameter as fetcher if it's set
+	if fetcher == nil {
+		// Or use config parameter
+		if c.config.Fetcher == nil {
+			return ErrNilFetcher
+		}
+		fetcher = c.config.Fetcher
+	}
 	attempts := 0
 	for {
 		// Trying to get item from Redis server
@@ -59,7 +74,7 @@ func (c *DefaultCache) Get(key interface{}, obj interface{}, fetcher Fetcher) er
 		c.expvarAdd("gets", 1)
 		if err == nil {
 			// Item isn't expired
-			err = c.config.Serializer.Deserialize(val, obj)
+			err = c.deserialize(val, obj)
 			// If object is expired but still alive use stale value but start background update
 			if (c.config.Lifetime - c.config.Expire) > ttl {
 				c.expvarAdd("stale", 1)
@@ -122,7 +137,7 @@ func (c *DefaultCache) fetch(key interface{}, fetcher Fetcher) {
 			return
 		}
 		// Writing to Redis
-		val, err := c.config.Serializer.Serialize(obj)
+		val, err := c.serialize(obj)
 		if err != nil {
 			c.expvarAdd("fetch_serialize_errors", 1)
 			return
@@ -140,4 +155,18 @@ func (c *DefaultCache) fetch(key interface{}, fetcher Fetcher) {
 		c.expvarAdd("fetch_waits", 1)
 		c.fetchLock.RUnlock()
 	}
+}
+
+func (c *DefaultCache) serialize(obj interface{}) ([]byte, error) {
+	if c.config.Serializer != nil {
+		return c.config.Serializer.Serialize(obj)
+	}
+	return nil, ErrNilSerializer
+}
+
+func (c *DefaultCache) deserialize(src []byte, obj interface{}) error {
+	if c.config.Serializer != nil {
+		return c.config.Serializer.Deserialize(src, obj)
+	}
+	return ErrNilSerializer
 }

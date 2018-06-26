@@ -20,12 +20,13 @@ Features include:
   * serializers
   * cache logic modules
   * storage drivers
+  * driver wrappers
 
 ## Quickstart
 ### Install/Update
  go get -u github.com/DLag/cachery
 ### Basic usage
-import
+TBD
 
 ## Staying up to date
 

@@ -67,11 +67,14 @@ func generateCacheInstance(name string, driver cachery.Driver) []cachery.Cache {
 				Serializer: serializer,
 				// Driver is reusable for different caches
 				Driver: driver,
+				// Fetcher is function that fetch data from the underlying storage(e.g. database)
+				// could be nil if you use fetcher parameter of Get function
+				Fetcher: fetcherOrders,
 				// Expvar will be used to populate cache statistics through expvar package
 				// It could be nil if you don't need it
 				Expvar: expvarMap,
 				// Tags allow you invalidate all caches in Manager which have specified tags
-				Tags: []string{"orders"},
+				Tags: []string{"orders", "goods"},
 			}),
 		cachery.NewDefault(
 			name+"_LONG_CACHE",
@@ -80,6 +83,7 @@ func generateCacheInstance(name string, driver cachery.Driver) []cachery.Cache {
 				Lifetime:   time.Minute * 60,
 				Serializer: serializer,
 				Driver:     driver,
+				Fetcher:    fetcherGoods,
 				Expvar:     expvarMap,
 				Tags:       []string{"goods"},
 			}),

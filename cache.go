@@ -67,6 +67,8 @@ type Config struct {
 	Serializer Serializer
 	// Driver cache storage driver (e.g. Redis, Memcached, Memory)
 	Driver Driver
-	// Expvar instance of *expvar.Map to save cache statistics
+	// Fetcher optional instance of Fetcher function, could be nil if fetcher parameter of Get function is used
+	Fetcher Fetcher
+	// Driver cache storage driver (e.g. Redis, Memcached, Memory)
 	Expvar *expvar.Map
 }
