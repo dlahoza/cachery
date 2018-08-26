@@ -113,7 +113,7 @@ func (c *Wrapper) Get(cacheName string, key interface{}) (val []byte, ttl time.D
 func (c *Wrapper) send(msg message) error {
 	err := c.nats.Publish(c.subject, msg)
 	if err != nil {
-		return errors.Wrap(err, "In-memory NATS driver: cannot send message")
+		return errors.Wrap(err, "NATS wrapper: cannot send message")
 	}
 	return nil
 }
